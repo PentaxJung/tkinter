@@ -127,25 +127,26 @@ class MainWindow(object):
             raise ValueError('Choose right file')
 
     def browse_button_pop(self):
-        filename_pop = filedialog.askopenfilename(title="Select file")
-        self.data_pop = read_csv(filename_pop, header=None, delimiter='\t| ', engine='python').values[0]
-        self.text_data.insert(END, "선택한 세분화 기준 파일 경로:" + filename_pop +
+        self.filename_pop = filedialog.askopenfilename(title="Select file")
+        self.a = read_csv(self.filename_pop, header=None, delimiter='\t| ', engine='python').values[0]
+        self.data_pop = self.a
+        self.text_data.insert(END, "선택한 세분화 기준 파일 경로:" + self.filename_pop +
                               "\n\n----------------------------------\n\n")
         self.text_data.see("end")
-        self.popfile_label.config(text=filename_pop)
+        self.popfile_label.config(text=self.filename_pop)
 
     def show_data(self):
-        self.text_data.insert(END, "Head of Data\n")
-        self.text_data.insert(END, self.data.head().to_string())
-        self.text_data.insert(END, '\n\nTail of Data\n')
-        self.text_data.insert(END, self.data.tail().to_string() +
-                              "\n\n----------------------------------\n\n")
+        self.text_data.insert(END, "[Head of Data]\n" + self.data.head().to_string() + "\n\n"
+                              + "[Tail of Data]\n" + self.data.tail().to_string()
+                              + "\n\n----------------------------------\n\n")
 
     def save(self):
         self.name = filedialog.asksaveasfilename(defaultextension=".txt")
         self.save_dir_msg.config(text=self.name)
 
     def run(self):
+        self.data_pop = self.a
+
         self.text_data.insert(END, ". . . 존 세분화를 시작합니다 . . .\n\n")
         self.text_data.see("end")
         col = [int(i) for i in self.data['D'].unique()]
@@ -210,7 +211,7 @@ class MainWindow(object):
 
         else:
             print("\nError...")
-            self.text_data.insert(END, "오류 . . .\n")
+            self.text_data.insert(END, " 오류 . . .\n")
             self.text_data.insert(END, str(judge_1)+"\n\n")
             self.text_data.see("end")
 
@@ -223,9 +224,9 @@ class MainWindow(object):
                 file.write(lines)
         print("- Total of raw data:", self.data_3['Total']['Total'],
               "\n- Total of segmented data:", data_4['Total']['Total'])
-        self.text_data.insert(END, "- 기존 O/D 총량  :"+str(self.data_3['Total']['Total'])+"\n")
+        self.text_data.insert(END, " - 기존 O/D 총량  :"+str(self.data_3['Total']['Total'])+"\n")
         self.text_data.see("end")
-        self.text_data.insert(END, "- 세분화 O/D 총량:"+str(data_4['Total']['Total'])+"\n\n")
+        self.text_data.insert(END, " - 세분화 O/D 총량:"+str(data_4['Total']['Total'])+"\n\n")
         self.text_data.see("end")
         self.text_data.insert(END, "지정한 경로에 저장하였습니다:"+self.name+"\n\n")
         self.text_data.see("end")
