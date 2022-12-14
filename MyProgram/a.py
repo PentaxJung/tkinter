@@ -1,9 +1,17 @@
+<<<<<<< HEAD
 from pandas import read_csv, DataFrame
+=======
+from pandas import read_csv, pivot_table, melt
+>>>>>>> 6fa144d946ea66b4742364da7360371e019c8ee5
 from time import process_time
 import timeit
 
 def run():
+<<<<<<< HEAD
     in_file = '../2016auto.in'
+=======
+    in_file = '../1250auto.in'
+>>>>>>> 6fa144d946ea66b4742364da7360371e019c8ee5
     pop_file = '../pop.in'
 
     whole_seg_time = process_time()
@@ -15,6 +23,7 @@ def run():
 
     # O/D 매트릭스 생성(self.data_OD)
     const_OD_time = process_time()
+<<<<<<< HEAD
     col = [int(i) for i in data['D'].unique()]
     row = [int(i) for i in data['O'].unique()]
     data_OD = DataFrame(columns=col, index=row)
@@ -28,6 +37,11 @@ def run():
             n = n + 1
     print(" - OD 구축 소요시간: " + str(process_time() - finish_OD_time))
     print(" - 전체 OD 구축 소요시간: " + str(process_time() - const_OD_time))
+=======
+    data_OD = pivot_table(data, values='Traffic', index='O', columns='D')
+    print(data_OD)
+    print(" - OD 구축 소요시간: " + str(process_time() - const_OD_time))
+>>>>>>> 6fa144d946ea66b4742364da7360371e019c8ee5
 
     pop_process_time = process_time()
     seg_zone_df = data_pop[data_pop.duplicated(subset='before', keep=False)].groupby('before')
@@ -42,15 +56,25 @@ def run():
     print(" - pop 참조 소요시간: " + str(process_time() - pop_process_time))
 
     start_time = process_time()
+<<<<<<< HEAD
 
+=======
+>>>>>>> 6fa144d946ea66b4742364da7360371e019c8ee5
     data_judge_be = data_OD.copy(deep=False)
     data_judge_be.loc['Total'] = data_judge_be.sum(axis=0)  # Total sum per column:
     data_judge_be.loc[:, 'Total'] = data_judge_be.sum(axis=1)  # Total sum per row:
 
+<<<<<<< HEAD
     for i in range(len(target_zone)):
         for n in range(len(seg_zone[i])):
             data_OD.loc[seg_zone[i][n]] = data_OD.loc[target_zone[i]] * pop_ratio[i][n]
             data_OD.loc[:, seg_zone[i][n]] = data_OD.loc[:, target_zone[i]] * pop_ratio[i][n]
+=======
+    for target_zone_num, seg_zone_list, pop_list in zip(target_zone, seg_zone, pop_ratio):
+        for index, seg_zone_num in enumerate(seg_zone_list):
+            data_OD.loc[seg_zone_num] = data_OD.loc[target_zone_num] * pop_list[index]
+            data_OD.loc[:, seg_zone_num] = data_OD.loc[:, target_zone_num] * pop_list[index]
+>>>>>>> 6fa144d946ea66b4742364da7360371e019c8ee5
     print(" - 세분화 작업 소요시간: " + str(process_time() - start_time))
 
     delete_time = process_time()
@@ -75,17 +99,29 @@ def run():
     print(" - 판별 작업 소요시간: " + str(process_time() - judge_time))
 
     write_time = process_time()
+<<<<<<< HEAD
     file = open('../wow.txt', 'w', encoding='utf8')
     header = 't matrices\na matrix=mf01 2016auto\n'
     file.write(header)
+=======
+    # file = open('../wow.txt', 'w', encoding='utf8')
+    # header = 't matrices\na matrix=mf01 2016auto\n'
+    # file.write(header)
+>>>>>>> 6fa144d946ea66b4742364da7360371e019c8ee5
     # for i in data_OD.index:
     #     for j in data_OD.columns:
     #         lines = '%d\t%d\t%f\n' % (i, j, data_OD.at[i, j])
     #         file.write(lines)
+<<<<<<< HEAD
     print(data_OD)
     for row in data_OD.itertuples():
         lines = str(row)
         file.write(lines)
+=======
+    data_write = data_OD.T.unstack()
+    print(data_write)
+    data_write.to_csv('../wow.txt', sep=',', na_rep=0)
+>>>>>>> 6fa144d946ea66b4742364da7360371e019c8ee5
     print(" - 파일 쓰기 소요시간: " + str(process_time() - write_time))
 
     print(" - 전체 세분화 소요시간: " + str(process_time() - whole_seg_time))
