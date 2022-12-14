@@ -16,6 +16,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+Scripts/
 parts/
 sdist/
 var/
@@ -89,6 +90,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+pyvenv.cfg
 
 # Spyder project settings
 .spyderproject
@@ -102,10 +104,10 @@ venv.bak/
 
 # mypy
 .mypy_cache/
-/MyProgram/spanner.ico
 
 # temporal output files(.txt)
 hell.txt
 wow.txt
-example.in
-example_pop.in
+
+# PyCharm stuffs
+.idea/
