@@ -1,3 +1,5 @@
+from traceback import format_exc
+
 from tkinter import *
 import tkinter.filedialog as filedialog
 from tkinter.ttk import Frame, Notebook, Progressbar, Style
@@ -21,7 +23,7 @@ def main():
     m = MainWindow(root)
     root.mainloop()
 
-def queue_confirm(queue, data):
+def queue_confirm(data, queue):
     try:
         queue.put('통행량 데이터 읽기')
         queue.put('start')
@@ -33,7 +35,6 @@ def queue_confirm(queue, data):
         for file in filename_in:
             # 단일 파일 통행량 정보 추출
             if file.split('.')[-1] in ['in', 'txt', 'csv', 'tsv']:
-                # data_list = read_data([file], sep, queue, data_list)
                 filepath_list.append(file)
 
             # 압축 파일 통행량 정보 추출
@@ -44,7 +45,6 @@ def queue_confirm(queue, data):
                 filename_list = listdir(directory_to_extract_to)
                 for file in filename_list:
                     filepath_list.append(directory_to_extract_to+'/'+file)
-                # filepath_list = [directory_to_extract_to+'/'+file for file in filename_list]
 
             else:
                 queue.put("올바른 파일을 선택해주세요.\n현재 선택한 파일: " + filename_in)
@@ -60,20 +60,21 @@ def queue_confirm(queue, data):
         queue.put(None)
         return
     except Exception as e:
-        queue.put('ERROR')
-        queue.put(e)
-        queue.put('-----------------------------------------------------------')
-        queue.put('exception')
+        queue.put('*ERROR*'+format_exc())
 
 def read_data(filepath_list, sep, queue, data_list):
     try:
         i = 0
         dtype = {'O': int, 'D': int, 'Traffic': float}
         for filepath in filepath_list:
+            header = []
             file = open(filepath, 'r', encoding='utf8')
-
-            header = [line for line in file.readlines() if not line[0].isdigit()]
-            data_chunk = read_csv(filepath, skiprows=2, sep=sep, header=None, names=['O', 'D', 'Traffic'], dtype=dtype)
+            for skip_index, line in enumerate(file):
+                if line[0].isdigit():
+                    break
+                header.append(line)
+            file.seek(0)
+            data_chunk = read_csv(filepath, skiprows=skip_index, sep=sep, header=None, names=['O', 'D', 'Traffic'], dtype=dtype)
             data_title = filepath.split('/')[-1]
 
             i += 1
@@ -83,12 +84,9 @@ def read_data(filepath_list, sep, queue, data_list):
         return data_list
 
     except Exception as e:
-        queue.put('ERROR')
-        queue.put(e)
-        queue.put('-----------------------------------------------------------')
-        queue.put('exception')
+        queue.put('*ERROR*'+format_exc())
 
-def seg_confirm(queue, data):
+def seg_confirm(data, queue):
     try:
         queue.put('세분화 기준 데이터 읽기')
         queue.put('start')
@@ -128,81 +126,85 @@ def seg_confirm(queue, data):
         return
 
     except Exception as e:
-        queue.put('ERROR')
-        queue.put(e)
-        queue.put('-----------------------------------------------------------')
-        queue.put('exception')
+        queue.put('*ERROR*'+format_exc())
 
-def constOD(data, stat_q):
-    data['data'] = pivot_table(data['data'], index='O', columns='D', values='Traffic')
-    stat_q.put(1)
-    return data
+def constOD(data, data_q, stat_q):
+    try:
+        data['data'] = pivot_table(data['data'], index='O', columns='D', values='Traffic')
+        stat_q.put(1)
+        return data
+    except Exception as e:
+        data_q.put('*ERROR*' + format_exc())
 
 def segmentation(data, data_pop, data_q, stat_q):
-    # ----------------------------------------- 변수 선언 -----------------------------------------
-    header, data_OD, data_title = data.values()
-    target_zone, seg_zone, pop_ratio = data_pop
+    try:
+        # ----------------------------------------- 변수 선언 -----------------------------------------
+        header, data_OD, data_title = data.values()
+        target_zone, seg_zone, pop_ratio = data_pop
 
-    # ----------------------------------------- 세분화 작업 -----------------------------------------
-    # Total 판별용 매트릭스 생성(data_judge_be / deep copy X)
-    data_judge_be = data_OD.copy(deep=False)
-    data_judge_be.loc['Total'] = data_judge_be.sum(axis=0)  # Total sum per column:
-    data_judge_be.loc[:, 'Total'] = data_judge_be.sum(axis=1)  # Total sum per row:
+        # ----------------------------------------- 세분화 작업 -----------------------------------------
+        # Total 판별용 매트릭스 생성(data_judge_be / deep copy X)
+        data_judge_be = data_OD.copy(deep=False)
+        data_judge_be.loc['Total'] = data_judge_be.sum(axis=0)  # Total sum per column:
+        data_judge_be.loc[:, 'Total'] = data_judge_be.sum(axis=1)  # Total sum per row:
 
-    for target_zone_num, seg_zone_list, pop_list in zip(target_zone, seg_zone, pop_ratio):
-        for index, seg_zone_num in enumerate(seg_zone_list):
-            try:
-                data_OD.loc[seg_zone_num] = (data_OD.loc[target_zone_num] * pop_list[index]).round(2)
-                data_OD.loc[:, seg_zone_num] = (data_OD.loc[:, target_zone_num] * pop_list[index]).round(2)
-            except KeyError as e:
-                data_q.put('ERROR')
-                data_q.put(f' - \'{data_title}\' 통행량 O/D에 존 번호(\'{target_zone_num}\')가 없습니다.')
-                data_q.put('-----------------------------------------------------------')
-                data_q.put('exception')
+        for target_zone_num, seg_zone_list, pop_list in zip(target_zone, seg_zone, pop_ratio):
+            for index, seg_zone_num in enumerate(seg_zone_list):
+                try:
+                    data_OD.loc[seg_zone_num] = (data_OD.loc[target_zone_num] * pop_list[index]).round(2)
+                    data_OD.loc[:, seg_zone_num] = (data_OD.loc[:, target_zone_num] * pop_list[index]).round(2)
+                except KeyError as e:
+                    data_q.put(f' - \'{data_title}\' 통행량 O/D에 존 번호(\'{target_zone_num}\')가 없습니다.')
+                    queue.put('*ERROR*' + format_exc())
 
-    # ----------------------------------------- 기존 존 삭제 -----------------------------------------
-    for i in target_zone:
-        data_OD = data_OD.drop([i], axis=0).drop([i], axis=1)
+        # ----------------------------------------- 기존 존 삭제 -----------------------------------------
+        for i in target_zone:
+            data_OD = data_OD.drop([i], axis=0).drop([i], axis=1)
 
-    # data_OD = data_OD.astype('float64').round(2)
+        # data_OD = data_OD.astype('float64').round(2)
 
-    # ----------------------------------------- 판별 작업 -----------------------------------------
-    # 세분화 후 Total 판별용 매트릭스 생성(data_judge_af)
-    data_judge_af = data_OD.copy(deep=False)
-    data_judge_af.loc['Total'] = data_judge_af.sum(axis=0)
-    data_judge_af.loc[:, 'Total'] = data_judge_af.sum(axis=1)
-    judge = abs(data_judge_be['Total']['Total'] / data_judge_af['Total']['Total'])
+        # ----------------------------------------- 판별 작업 -----------------------------------------
+        # 세분화 후 Total 판별용 매트릭스 생성(data_judge_af)
+        data_judge_af = data_OD.copy(deep=False)
+        data_judge_af.loc['Total'] = data_judge_af.sum(axis=0)
+        data_judge_af.loc[:, 'Total'] = data_judge_af.sum(axis=1)
+        judge = abs(data_judge_be['Total']['Total'] / data_judge_af['Total']['Total'])
 
-    if 0.9999 < judge < 1.0001:
-        pass
-        # queue.put("존 세분화를 성공적으로 완료하였습니다!")
-    else:
-        # print("\nError...")
-        data_q.put(" - {} 데이터 세분화 오류 . . . ".format(data_title))
-        data_q.put(" - 기존 O/D 총량  :" + str(data_judge_be['Total']['Total']))
-        data_q.put(" - 세분화 O/D 총량:" + str(data_judge_af['Total']['Total']))
-        data_q.put(" - 일치도: {}".format(str(judge)))
+        if 0.9999 < judge < 1.0001:
+            pass
+            # queue.put("존 세분화를 성공적으로 완료하였습니다!")
+        else:
+            # print("\nError...")
+            data_q.put(" - {} 데이터 세분화 오류 . . . ".format(data_title))
+            data_q.put(" - 기존 O/D 총량  :" + str(data_judge_be['Total']['Total']))
+            data_q.put(" - 세분화 O/D 총량:" + str(data_judge_af['Total']['Total']))
+            data_q.put(" - 일치도: {}".format(str(judge)))
 
-    # queue.put(" - 기존 O/D 총량  :" + str(data_judge_be['Total']['Total']))
-    # queue.put(" - 세분화 O/D 총량:" + str(data_judge_af['Total']['Total']))
-    # queue.put(" - 일치도: {}".format(str(judge)))
+        # queue.put(" - 기존 O/D 총량  :" + str(data_judge_be['Total']['Total']))
+        # queue.put(" - 세분화 O/D 총량:" + str(data_judge_af['Total']['Total']))
+        # queue.put(" - 일치도: {}".format(str(judge)))
 
-    # ----------------------------------------- 세분화 종료 -----------------------------------------
-    data['data'] = data_OD
-    stat_q.put(1)
-    return data
+        # ----------------------------------------- 세분화 종료 -----------------------------------------
+        data['data'] = data_OD
+        stat_q.put(1)
+        return data
+    except Exception as e:
+        data_q.put('*ERROR*' + format_exc())
 
-def after_write(data, stat_q, dir_name):
-    # ----------------------------------------- 변수 선언 -----------------------------------------
-    header, data_OD, data_title = data.values()
+def after_write(data, dir_name, data_q, stat_q):
+    try:
+        # ----------------------------------------- 변수 선언 -----------------------------------------
+        header, data_OD, data_title = data.values()
 
-    # ----------------------------------------- 파일 쓰기 작업 -----------------------------------------
-    save_name = dir_name + '/' + data_title.split('.')[0] + '_after.csv'
-    file = open(save_name, 'w', encoding='utf8')
-    file.write(''.join(header))
-    data_OD.T.unstack().dropna(axis=0).to_csv(file, header=False, lineterminator='\n')
-    file.close()
-    stat_q.put(1)
+        # ----------------------------------------- 파일 쓰기 작업 -----------------------------------------
+        save_name = dir_name + '/' + data_title.split('.')[0] + '_after.csv'
+        file = open(save_name, 'w', encoding='utf8')
+        file.write(''.join(header))
+        data_OD.T.unstack().dropna(axis=0).to_csv(file, header=False, lineterminator='\n')
+        file.close()
+        stat_q.put(1)
+    except Exception as e:
+        data_q.put('*ERROR*' + format_exc())
 
 def do_run(data: dict, data_pop, dir_name, data_q, stat_q):
     try:
@@ -214,7 +216,7 @@ def do_run(data: dict, data_pop, dir_name, data_q, stat_q):
         data_q.put('OD 구축')
         data_q.put('start')
         data_q.put(". . . OD 구축 시작 . . .")
-        data = pool.starmap_async(constOD, [(data_chunk, stat_q) for data_chunk in data]).get()
+        data = pool.starmap_async(constOD, [(data_chunk, data_q, stat_q) for data_chunk in data]).get()
         data_q.put(". . . OD 구축 완료 . . .")
         data_q.put('done')
         # ----------------------------------------- 세분화 작업 -----------------------------------------
@@ -228,7 +230,7 @@ def do_run(data: dict, data_pop, dir_name, data_q, stat_q):
         data_q.put('결과 파일 내보내기')
         data_q.put('start')
         data_q.put(". . . 결과 파일 내보내기 시작 . . .")
-        pool.starmap(after_write, [(data_chunk, stat_q, dir_name) for data_chunk in data])
+        pool.starmap(after_write, [(data_chunk, dir_name, data_q, stat_q) for data_chunk in data])
         data_q.put(". . . 결과 파일 내보내기 완료 . . .")
         data_q.put('done')
         data_q.put('all done')
@@ -237,22 +239,22 @@ def do_run(data: dict, data_pop, dir_name, data_q, stat_q):
         pool.close()
 
     except Exception as e:
-        data_q.put('ERROR')
-        data_q.put(e)
-        data_q.put('-----------------------------------------------------------')
-        data_q.put('exception')
+        data_q.put('*ERROR*'+format_exc())
 
 def mp_progress(data_q, stat_q, size):
-    indicator = []
-    while len(indicator) < size:
-        num = stat_q.get()
-        if type(num) == int:
-            indicator.append(num)
-        progress = round(sum(indicator) / size, 2)
-        data_q.put(progress)
-        if len(indicator) == size:
-            indicator = []
-            continue
+    try:
+        indicator = []
+        while len(indicator) < size:
+            num = stat_q.get()
+            if type(num) == int:
+                indicator.append(num)
+            progress = sum(indicator) / size
+            data_q.put(progress)
+            if len(indicator) == size:
+                indicator = []
+                continue
+    except Exception as e:
+        data_q.put('*ERROR*'+format_exc())
 
 class MainWindow(Frame):
     def __init__(self, master):
@@ -314,8 +316,8 @@ class MainWindow(Frame):
         frame3.grid(row=2, column=0, padx=8, pady=4)
         frame3.grid_propagate(0)
 
-        frame4 = LabelFrame(frame0, text=" Messages ", height=320, width=480)
-        frame4.grid(row=0, rowspan=3, column=1, padx=8, pady=4)
+        frame4 = LabelFrame(frame0, text=" Messages ", height=200, width=460)
+        frame4.grid(row=0, rowspan=3, column=1, sticky=N+S, padx=8, pady=4)
         frame4.grid_propagate(0)
 
         # ----------------------------- Declare Variables -----------------------------
@@ -419,9 +421,9 @@ class MainWindow(Frame):
         self.pbar = Progressbar(frame3, mode='indeterminate')
         self.pbar.grid(row=2, column=0, columnspan=8, sticky=W+E, padx=8)
 
-        # ------------------------------------------ Frame 4 ------------------------------------------
+        # ------------------------------------------ Frame 5 ------------------------------------------
         # --------------- Declare texts ---------------
-        self.text_data = scrolledtext.ScrolledText(frame4, height=22, width=60)
+        self.text_data = scrolledtext.ScrolledText(frame4, height=20, width=60)
         self.text_data.tag_config('error', foreground='red', justify='center')
         self.text_data.grid(padx=8, pady=4)
 
@@ -464,7 +466,7 @@ class MainWindow(Frame):
             self.txt_msg_update("-----------------------------------------------------------")
             self.infile_label.config(text=[file.split('/')[-1] for file in self.filename_in])
         except Exception as e:
-            self.txt_msg_update(str(e))
+            self.err_msg_update(format_exc())
 
     def browse_button_pop(self):
         try:
@@ -473,7 +475,7 @@ class MainWindow(Frame):
                                 "\n\n-----------------------------------------------------------")
             self.popfile_label.config(text=self.filename_pop.split('/')[-1])
         except Exception as e:
-            self.txt_msg_update(str(e))
+            self.err_msg_update(format_exc())
 
     def confirm(self):
         try:
@@ -493,28 +495,20 @@ class MainWindow(Frame):
             data_call = [self.filename_in, self.select_file_type_in.get(),
                          self.filename_pop, self.select_file_type_pop.get()]
 
-            confirm_traffic = Thread(target=queue_confirm, args=(queue1, data_call), daemon=True)
+            confirm_traffic = Thread(target=queue_confirm, args=(data_call, queue1), daemon=True)
             confirm_traffic.start()
 
             update_traffic = Thread(target=self.progress_update, args=(queue1, self.data_traffic), daemon=True)
             update_traffic.start()
 
-            confirm_pop = Thread(target=seg_confirm, args=(queue2, data_call), daemon=True)
+            confirm_pop = Thread(target=seg_confirm, args=(data_call, queue2), daemon=True)
             confirm_pop.start()
 
             update_pop = Thread(target=self.progress_update, args=(queue2, self.data_pop), daemon=True)
             update_pop.start()
 
         except Exception as e:
-            self.txt_msg_update(str(e))
-            self.pbar.stop()
-            self.traffic_data_lb.config(text='')
-            self.pop_data_lb.config(text='')
-            self.const_od_lb.config(text='')
-            self.segmentation_lb.config(text='')
-            self.write_lb.config(text='')
-            self.confirm_b.config(state=NORMAL)
-            self.run_b.config(state=NORMAL)
+            self.err_msg_update(format_exc())
 
     def run(self):
         try:
@@ -542,20 +536,7 @@ class MainWindow(Frame):
             update_run.start()
 
         except Exception as e:
-            self.txt_msg_update(str(e))
-            self.pbar.stop()
-            self.traffic_data_lb.config(text='')
-            self.pop_data_lb.config(text='')
-            self.const_od_lb.config(text='')
-            self.segmentation_lb.config(text='')
-            self.write_lb.config(text='')
-            self.confirm_b.config(state=NORMAL)
-            self.run_b.config(state=NORMAL)
-
-            data_q.put('ERROR')
-            data_q.put(e)
-            data_q.put('-----------------------------------------------------------')
-            data_q.put('exception')
+            self.err_msg_update(format_exc())
 
     # def popup(self, text):
     #     try:
@@ -587,15 +568,25 @@ class MainWindow(Frame):
             self.txt_msg_update("\n - 선택한 파일 저장 경로:\n  " + self.name +
                                 "\n\n-----------------------------------------------------------")
         except Exception as e:
-            self.txt_msg_update(str(e))
+            self.err_msg_update(format_exc())
 
     def txt_msg_update(self, txt):
         self.text_data.insert(END, txt+'\n\n')
         self.text_data.see("end")
 
     def err_msg_update(self, txt):
+        self.text_data.insert(END, 'ERROR\n\n', 'error')
         self.text_data.insert(END, txt+'\n\n', 'error')
-        self.text_data.see("end")
+        self.txt_msg_update('-----------------------------------------------------------')
+
+        self.pbar.stop()
+        self.traffic_data_lb.config(text='')
+        self.pop_data_lb.config(text='')
+        self.const_od_lb.config(text='')
+        self.segmentation_lb.config(text='')
+        self.write_lb.config(text='')
+        self.confirm_b.config(state=NORMAL)
+        self.run_b.config(state=NORMAL)
 
     def progress_update(self, queue, result):
         task_dict = {
@@ -639,12 +630,9 @@ class MainWindow(Frame):
                         elif data == 'all done':
                             self.pbar.stop()
                             button.config(state=NORMAL)
-                        elif data == 'exception':
-                            self.pbar.stop()
-                            button.config(state=NORMAL)
+                        elif data[:7] == '*ERROR*':
+                            self.err_msg_update(data[7:])
                             return
-                        elif data == 'ERROR':
-                            self.err_msg_update('ERROR')
                         else:
                             self.txt_msg_update(data)
                     elif type(data) == float:
@@ -655,6 +643,8 @@ class MainWindow(Frame):
                     return
             except Empty:
                 pass
+            except Exception as e:
+                self.err_msg_update(format_exc())
 
 # class PopUpWindow(object):
 #     def __init__(self, master):

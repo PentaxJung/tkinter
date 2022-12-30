@@ -109,9 +109,10 @@ pyvenv.cfg
 .idea/
 
 
-# temporal output files
+# data files
+exam_data/
 after_data/
 odod/
 
-# input files
-exam_data/
+# temporal files
+c.py
