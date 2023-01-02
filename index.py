@@ -1,19 +1,19 @@
 from traceback import format_exc
 
 from tkinter import *
-import tkinter.filedialog as filedialog
+from tkinter import filedialog, scrolledtext
 from tkinter.ttk import Frame, Notebook, Progressbar, Style
-import tkinter.scrolledtext as scrolledtext
 
 from os import listdir
 from zipfile import ZipFile
+from csv import Sniffer
 from pandas import read_csv, pivot_table
 
 from threading import Thread
 from multiprocessing import Queue, cpu_count, Pool, Manager, freeze_support
 from queue import Empty
 
-from time import perf_counter, sleep
+from time import perf_counter
 
 queue1 = Queue()
 queue2 = Queue()
@@ -29,8 +29,8 @@ def queue_confirm(data, queue):
         queue.put('start')
         data_list = []
         filepath_list = []
-        filename_in, select_file_type_in, _, _ = data
-        sep = ',' if select_file_type_in == 'in_csv' else '\s'
+        filename_in, _, _, _ = data
+        # sep = ',' if select_file_type_in == 'in_csv' else '\s'
 
         for file in filename_in:
             # 단일 파일 통행량 정보 추출
@@ -49,7 +49,7 @@ def queue_confirm(data, queue):
             else:
                 queue.put("올바른 파일을 선택해주세요.\n현재 선택한 파일: " + filename_in)
 
-        data_list = read_data(filepath_list, sep, queue, data_list)
+        data_list = read_data(filepath_list, queue, data_list)
 
         queue.put(data_list)
         queue.put(". . . 통행량 파일 읽기 작업 완료 . . .\n\n - {}개 파일".format(len(data_list)))
@@ -62,7 +62,7 @@ def queue_confirm(data, queue):
     except Exception as e:
         queue.put('*ERROR*'+format_exc())
 
-def read_data(filepath_list, sep, queue, data_list):
+def read_data(filepath_list, queue, data_list):
     try:
         i = 0
         dtype = {'O': int, 'D': int, 'Traffic': float}
@@ -71,6 +71,7 @@ def read_data(filepath_list, sep, queue, data_list):
             file = open(filepath, 'r', encoding='utf8')
             for skip_index, line in enumerate(file):
                 if line[0].isdigit():
+                    sep = Sniffer().sniff(line).delimiter
                     break
                 header.append(line)
             file.seek(0)
@@ -155,7 +156,7 @@ def segmentation(data, data_pop, data_q, stat_q):
                     data_OD.loc[:, seg_zone_num] = (data_OD.loc[:, target_zone_num] * pop_list[index]).round(2)
                 except KeyError as e:
                     data_q.put(f' - \'{data_title}\' 통행량 O/D에 존 번호(\'{target_zone_num}\')가 없습니다.')
-                    queue.put('*ERROR*' + format_exc())
+                    data_q.put('*ERROR*' + format_exc())
 
         # ----------------------------------------- 기존 존 삭제 -----------------------------------------
         for i in target_zone:
@@ -421,7 +422,7 @@ class MainWindow(Frame):
         self.pbar = Progressbar(frame3, mode='indeterminate')
         self.pbar.grid(row=2, column=0, columnspan=8, sticky=W+E, padx=8)
 
-        # ------------------------------------------ Frame 5 ------------------------------------------
+        # ------------------------------------------ Frame 4 ------------------------------------------
         # --------------- Declare texts ---------------
         self.text_data = scrolledtext.ScrolledText(frame4, height=20, width=60)
         self.text_data.tag_config('error', foreground='red', justify='center')
