@@ -1,9 +1,9 @@
 from tkinter import *
-import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox, filedialog, scrolledtext
 
 from os.path import getsize
+from io import TextIOWrapper
 from zipfile import ZipFile
 
 from csv import Sniffer
@@ -160,32 +160,44 @@ class MainWindow(Frame):
 
     def delete_button_in(self):
         if self.cur_selection != None:
-            messagebox.showwarning('Confirmation', f'{len(self.cur_selection)}개 파일을 삭제하시겠습니까?')
-            for cur_focus in self.cur_selection:
-                self.trv.delete(cur_focus)
-            self.auto_show_data()
+            confirm = messagebox.askyesno('Confirmation', f'{len(self.cur_selection)}개 파일을 삭제하시겠습니까?')
+            if confirm:
+                for cur_focus in self.cur_selection:
+                    self.trv.delete(cur_focus)
+                self.auto_show_data()
         else: return
 
     def show_data(self, cur_selection):
-        self.text_data.delete(1.0, END)
+        try:
+            if len(cur_selection) == 1:
+                if '-' not in cur_selection[0]:
+                    cur_item = self.trv.item(cur_selection)
+                else:
+                    cur_item = self.trv.item(self.trv.parent(cur_selection))
+                    cur_item_in_zip = self.trv.item(cur_selection)
 
-        if len(cur_selection) == 1:
-            cur_item = self.trv.item(cur_selection)
-            filepath = cur_item['values'][0]+'/'+cur_item['text']
-
-            if filepath.split('/')[-1].split('.')[-1] != 'zip':
+                filepath = cur_item['values'][0]+'/'+cur_item['text']
                 dtype = {'O': int, 'D': int, 'Traffic': float}
                 header = []
-                file = open(filepath, 'r', encoding='utf8')
+
+                if filepath.split('.')[-1] != 'zip':
+                    file = open(filepath, 'r', encoding='utf8')
+
+                else:
+                    zf = ZipFile(filepath, 'r')
+                    item = zf.open(cur_item_in_zip['text'])
+                    file = TextIOWrapper(item, encoding='utf-8', newline='')
+
                 for skip_index, line in enumerate(file):
                     if line[0].isdigit():
                         sep = Sniffer().sniff(line).delimiter
                         break
-                    header.append(line)
+                    header.append(line.replace('\r', ''))
                 file.seek(0)
-                data_chunk = read_csv(filepath, skiprows=skip_index, sep=sep, header=None, names=['O', 'D', 'Traffic'],
+                data_chunk = read_csv(file, skiprows=skip_index, sep=sep, header=None, names=['O', 'D', 'Traffic'],
                                       dtype=dtype)
 
+                self.text_data.delete(1.0, END)
                 for item in header:
                     self.text_data.insert(END, item)
                 self.text_data.insert(END, '\n')
@@ -195,7 +207,8 @@ class MainWindow(Frame):
                 self.text_data.insert(END, '\n\n')
                 self.text_data.see(END)
             else: return
-        else: return
+        except UnboundLocalError:
+            pass
 
     # 파일 추가 시 가장 마지막 열로 이동/선택, 데이터 요약 출력
     def auto_show_data(self):
@@ -215,6 +228,4 @@ class MainWindow(Frame):
 
 
 if __name__ == "__main__":
-    # Windows에서 Multiprocessing 사용하려면 다음 코드 꼭 입력!!
-    # 이전에 다른 코드 있으면 안 됨
     main()

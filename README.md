@@ -10,11 +10,13 @@
 
 2. ZIP 파일 입력 시 내부 파일 트리 시각화 구현중(북마크 참조)
  - ZIP 내부 파일 트리화 구현(완)
- - ZIP 내부 파일 실시간 표현
+ - ZIP 내부 파일 실시간 표현(완)
 
 3. 세분화 원하는 파일 체크박스 형식으로 선택하여 실행 구현중(북마크 참조)
+  * https://stackoverflow.com/questions/63046618/directory-treeview-with-filetype-filter-and-checkbox-using-ttk
  
-4. 기타
+5. 기타
  - 파일 크기 표현(완)
- -Column 클릭시 오름차순/내림차순 구현
- -Name column 텍스트에 밑줄 추가
+ - Column 클릭시 오름차순/내림차순 구현(북마크 참고)
+  * https://stackoverflow.com/questions/55268613/python-tkinter-treeview-sort-tree
+ - Name column 텍스트에 밑줄 추가
