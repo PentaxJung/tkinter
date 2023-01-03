@@ -105,9 +105,14 @@ pyvenv.cfg
 # mypy
 .mypy_cache/
 
-# temporal output files(.txt)
-hell.txt
-wow.txt
-
 # PyCharm stuffs
 .idea/
+
+
+# data files
+exam_data/
+after_data/
+odod/
+
+# temporal files
+c.py
