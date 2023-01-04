@@ -108,7 +108,6 @@ pyvenv.cfg
 # PyCharm stuffs
 .idea/
 
-
 # data files
 exam_data/
 after_data/

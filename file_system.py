@@ -1,6 +1,7 @@
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox, filedialog, scrolledtext
+from ttkwidgets import CheckboxTreeview
 
 from os.path import getsize
 from io import TextIOWrapper
@@ -50,6 +51,7 @@ class MainWindow(Frame):
         scrollbar_trv.grid(row=1, column=1, padx=(0, 20), pady=10, sticky='ns')
 
         # ----------------------------- Definite Treeview -----------------------------
+        # self.trv = CheckboxTreeview(wrapper1, columns=(1, 2, 3), show='tree headings', height=20, yscrollcommand=scrollbar_trv.set)
         self.trv = ttk.Treeview(wrapper1, columns=(1, 2, 3), show='tree headings', height=20, yscrollcommand=scrollbar_trv.set)
         self.trv.grid(row=1, column=0, padx=(20, 0), pady=10, sticky='we')
 
@@ -140,9 +142,11 @@ class MainWindow(Frame):
 
                     zf = ZipFile(file, 'r')
                     namelist_in_zip = zf.namelist()
+                    self.text_data.insert(END, str(namelist_in_zip)+'\n')
                     infolist_in_zip = zf.infolist()
 
                     for j, name in enumerate(namelist_in_zip):
+                        self.text_data.insert(END, str(name)+'\n')
                         iid_j = str(iid)+'-'+str(j+1)
                         file_ext_in_zip = name.split('.')[-1]
                         file_size_in_zip = '%.2f MB' % (infolist_in_zip[j].file_size / (1024.0 * 1024.0))
@@ -156,7 +160,7 @@ class MainWindow(Frame):
             else: print("올바른 파일을 선택해주세요.\n현재 선택한 파일: " + file_name)
 
         self.idx += i + 1
-        self.auto_show_data()
+        # self.auto_show_data()
 
     def delete_button_in(self):
         if self.cur_selection != None:
