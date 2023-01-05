@@ -2,7 +2,7 @@ from traceback import format_exc
 
 from tkinter import *
 from tkinter import filedialog, scrolledtext
-from tkinter.ttk import Frame, Progressbar, Style
+from tkinter.ttk import Frame, Notebook, Progressbar, Style
 
 from os import listdir
 from zipfile import ZipFile
@@ -14,27 +14,23 @@ from multiprocessing import Queue, cpu_count, Pool, Manager, freeze_support
 from queue import Empty
 
 from time import perf_counter
-import file_system
 
 queue1 = Queue()
 queue2 = Queue()
 
-def main(parent):
-    root = parent
+def main():
+    root = Tk()
     m = MainWindow(root)
     root.mainloop()
 
-# def main():
-#     root = Tk()
-#     m = MainWindow(root)
-#     root.mainloop()
-
-def queue_confirm(filename_in, queue):
+def queue_confirm(data, queue):
     try:
         queue.put('통행량 데이터 읽기')
         queue.put('start')
         data_list = []
         filepath_list = []
+        filename_in, _, _, _ = data
+        # sep = ',' if select_file_type_in == 'in_csv' else '\s'
 
         for file in filename_in:
             # 단일 파일 통행량 정보 추출
@@ -91,45 +87,43 @@ def read_data(filepath_list, queue, data_list):
     except Exception as e:
         queue.put('*ERROR*'+format_exc())
 
-def seg_confirm(filename_pop, queue):
+def seg_confirm(data, queue):
     try:
         queue.put('세분화 기준 데이터 읽기')
         queue.put('start')
 
+        _, _, filename_pop, select_file_type_pop = data
+        sep = ',' if select_file_type_pop == 'pop_csv' else '\s'
+
         # 세분화 파일 추출
         if filename_pop.split('.')[-1] in ['in', 'txt', 'csv', 'tsv']:
-            file = open(filename_pop, 'r', encoding='utf8')
-            for skip_index, line in enumerate(file):
-                if line[0].isdigit():
-                    sep = Sniffer().sniff(line).delimiter
-                    break
-            file.seek(0)
-            data_pop = read_csv(filename_pop, skiprows=skip_index, sep=sep, header=None, names=['before', 'after', 'ratio'])
-
-            # 세분화할 존, 세분화 후 존 번호, 세분화 기준 추출
-            seg_zone_df = data_pop[data_pop.duplicated(subset='before', keep=False)].groupby('before')
-            seg_data = [seg_zone_df.get_group(name) for name, group in seg_zone_df]
-            a = [dict(before=int(item.values[0][0]),
-                      after=[int(item['after'].iloc[i]) for i in range(len(item))],
-                      ratio=[item['ratio'].iloc[i] for i in range(len(item))]) for item in seg_data]
-
-            target_zone = [a[i]['before'] for i in range(len(a))]
-            seg_zone = [a[i]['after'] for i in range(len(a))]
-            pop_ratio = [a[i]['ratio'] for i in range(len(a))]
-
-            data_list = [target_zone, seg_zone, pop_ratio]
-            queue.put(data_list)
-
-            # 세분화 데이터 표시
-            queue.put(". . . 세분화 파일 읽기 작업 완료 . . .")
-            queue.put(" - 세분화 전 존 번호:" + str(target_zone))
-            queue.put(" - 세분화 후 존 번호:" + str(seg_zone))
-            queue.put(" - 세분화 기준 데이터:" + str(pop_ratio))
-            queue.put('done')
-            queue.put(None)
+            pass
         else:
             queue.put("올바른 파일을 선택해주세요.\n현재 선택한 파일: " + filename_pop)
 
+        data_pop = read_csv(filename_pop, skiprows=1, sep=sep, header=None, names=['before', 'after', 'ratio'])
+
+        # 세분화할 존, 세분화 후 존 번호, 세분화 기준 추출
+        seg_zone_df = data_pop[data_pop.duplicated(subset='before', keep=False)].groupby('before')
+        seg_data = [seg_zone_df.get_group(name) for name, group in seg_zone_df]
+        a = [dict(before=int(item.values[0][0]),
+                  after=[int(item['after'].iloc[i]) for i in range(len(item))],
+                  ratio=[item['ratio'].iloc[i] for i in range(len(item))]) for item in seg_data]
+
+        target_zone = [a[i]['before'] for i in range(len(a))]
+        seg_zone = [a[i]['after'] for i in range(len(a))]
+        pop_ratio = [a[i]['ratio'] for i in range(len(a))]
+
+        data_list = [target_zone, seg_zone, pop_ratio]
+        queue.put(data_list)
+
+        # 세분화 데이터 표시
+        queue.put(". . . 세분화 파일 읽기 작업 완료 . . .")
+        queue.put(" - 세분화 전 존 번호:" + str(target_zone))
+        queue.put(" - 세분화 후 존 번호:" + str(seg_zone))
+        queue.put(" - 세분화 기준 데이터:" + str(pop_ratio))
+        queue.put('done')
+        queue.put(None)
         return
 
     except Exception as e:
@@ -263,46 +257,57 @@ def mp_progress(data_q, stat_q, size):
     except Exception as e:
         data_q.put('*ERROR*'+format_exc())
 
-class MainWindow:
+class MainWindow(Frame):
     def __init__(self, master):
-        self.frame = Frame(master)
-        self.master = Toplevel(master)
-        self.master.grab_set()
-        self.parent = master
+        Frame.__init__(self, master, name="frame")
+
+        self.master = master
         self.initUI()
 
     def initUI(self):
 
         # ----------------------------- Definite Main Window -----------------------------
-        x, y = self.parent.winfo_x(), self.parent.winfo_y()
-
-        self.master.title("Zone segmentation")
-        self.master.geometry(f"720x750+{x+25}+{y+25}")
+        self.master.title("EMME Helper")
+        self.master.geometry("1020x360+100+100")
         self.master.grid_propagate(0)
 
-    # def __init__(self, master):
-    #     self.frame = Frame(master)
-    #     self.master = master
-    #     self.initUI()
-    #
-    # def initUI(self):
-    #
-    #     # ----------------------------- Definite Main Window -----------------------------
-    #     self.master.title("Zone segmentation")
-    #     self.master.geometry("720x750+100+100")
-    #     self.master.grid_propagate(0)
+        # ----------------------------- Definite Style -----------------------------
+        style = Style()
+        style.configure('TNotebook.Tab', foreground='dark blue')
+
+        # ----------------------------- Definite Menu bar -----------------------------
+        # menu_bar = Menu(self.master)
+        # self.file_menu = Menu(self.menu_bar, tearoff=0)
+        # self.file_menu.add_command(label="New", command=self.do_nothing)
+        # self.file_menu.add_command(label="Open", command=self.do_nothing)
+        # self.file_menu.add_command(label="Save", command=self.do_nothing)
+        # self.file_menu.add_command(label="Save as...", command=self.do_nothing)
+        # self.file_menu.add_command(label="Close", command=self.do_nothing)
+        # self.file_menu.add_separator()
+        # self.file_menu.add_command(label="Exit", command=root.quit)
+        # self.menu_bar.add_cascade(label="File", menu=self.file_menu)
+        #
+        # self.edit_menu = Menu(self.menu_bar, tearoff=0)
+        # self.edit_menu.add_command(label="Undo", command=self.do_nothing)
+        # self.edit_menu.add_command(label="Copy", command=self.do_nothing)
+        # self.edit_menu.add_command(label="Paste", command=self.do_nothing)
+        # self.menu_bar.add_cascade(label="Edit", menu=self.edit_menu)
+        #
+        # self.master.config(menu=menu_bar)
+
+        # ----------------------------- Definite Tabs -----------------------------
+        tab_control = Notebook(self.master)
+        tab1 = Frame(tab_control)
+        tab_control.add(tab1, text='Zone Segmentation')
+        tab_control.pack(expand=1, fill="both", padx=4)
 
         # ----------------------------- Declare Frames -----------------------------
-        frame0 = Frame(self.master)
+        frame0 = Frame(tab1)
         frame0.pack()
 
-        frame1 = LabelFrame(frame0, text=" File list ", )
-        frame1.grid(row=0, column=0, padx=20, pady=10)
+        frame1 = LabelFrame(frame0, text=" Input Files ", height=80, width=500)
+        frame1.grid(row=0, column=0, padx=8, pady=4)
         frame1.grid_propagate(0)
-
-        # frame1 = LabelFrame(frame0, text=" Input Files ", height=80, width=500)
-        # frame1.grid(row=0, column=0, padx=8, pady=4)
-        # frame1.grid_propagate(0)
 
         frame2 = LabelFrame(frame0, text=" Configurations ", height=120, width=500)
         frame2.grid(row=1, column=0, padx=8, pady=4)
@@ -322,6 +327,32 @@ class MainWindow:
         # self.seg_zone_num_sv = StringVar()
 
         # ------------------------------------------ Frame 1 ------------------------------------------
+        # --------------- Declare RadioButton ---------------
+        self.select_file_type_in = StringVar()
+        self.select_file_type_pop = StringVar()
+
+        radio1 = Radiobutton(frame1, text='csv', value='in_csv', variable=self.select_file_type_in)
+        radio1.select()
+        radio1.grid(row=0, column=0, sticky=W, padx=4)
+        radio1lb = Label(frame1)
+        radio1lb.grid(row=0, column=1)
+
+        radio2 = Radiobutton(frame1, text='tsv', value='in_tsv', variable=self.select_file_type_in)
+        radio2.grid(row=0, column=2, sticky=W)
+        radio2lb = Label(frame1)
+        radio2lb.grid(row=0, column=3)
+
+        radio3 = Radiobutton(frame1, text='csv', value='pop_csv', variable=self.select_file_type_pop)
+        radio3.select()
+        radio3.grid(row=1, column=0, sticky=W, padx=4)
+        radio3lb = Label(frame1)
+        radio3lb.grid(row=1, column=1)
+
+        radio4 = Radiobutton(frame1, text='tsv', value='pop_tsv', variable=self.select_file_type_pop)
+        radio4.grid(row=1, column=2, sticky=W)
+        radio4lb = Label(frame1)
+        radio4lb.grid(row=1, column=3)
+
         # --------------- Declare buttons ---------------
         browse_infile_button = Button(frame1, text=" Browse .in file ", command=self.browse_button_in, width=15)
         browse_infile_button.grid(row=0, column=4, sticky=W)
@@ -420,6 +451,9 @@ class MainWindow:
         '''
         self.text_data.insert(CURRENT, help_text)
 
+    def do_nothing(self):
+        print("a")
+
     def browse_button_in(self):
         try:
             self.filename_in = filedialog.askopenfilenames(parent=self.master, title="Select file")
@@ -459,13 +493,16 @@ class MainWindow:
             self.run_b.config(state=NORMAL)
             self.pbar.start()
 
-            confirm_traffic = Thread(target=queue_confirm, args=(self.filename_in, queue1), daemon=True)
+            data_call = [self.filename_in, self.select_file_type_in.get(),
+                         self.filename_pop, self.select_file_type_pop.get()]
+
+            confirm_traffic = Thread(target=queue_confirm, args=(data_call, queue1), daemon=True)
             confirm_traffic.start()
 
             update_traffic = Thread(target=self.progress_update, args=(queue1, self.data_traffic), daemon=True)
             update_traffic.start()
 
-            confirm_pop = Thread(target=seg_confirm, args=(self.filename_pop, queue2), daemon=True)
+            confirm_pop = Thread(target=seg_confirm, args=(data_call, queue2), daemon=True)
             confirm_pop.start()
 
             update_pop = Thread(target=self.progress_update, args=(queue2, self.data_pop), daemon=True)
@@ -501,6 +538,29 @@ class MainWindow:
 
         except Exception as e:
             self.err_msg_update(format_exc())
+
+    # def popup(self, text):
+    #     try:
+    #         w=PopUpWindow(self.master)
+    #         w.popup(text)
+    #         self.run_b["state"] = "disabled"
+    #         self.master.wait_window(w.top)
+    #         self.run_b["state"] = "normal"
+    #     except Exception as e:
+    #         self.txt_msg_update(str(e))
+
+
+    # def show_data(self, data):
+    #     try:
+    #         if len(data) == 1:
+    #             text = "[Head of Data]\n" + data.head().to_string() + "\n\n" +\
+    #                    "[Tail of Data]\n" + data.tail().to_string() + "\n\n----------------------------------\n\n"
+    #         else:
+    #             text = "[Summary of data]\n{}\n\n\n\n----------------------------------\n\n".format(data)
+    #         self.text_data.insert(END, text)
+    #         self.text_data.see("end")
+    #     except Exception as e:
+    #         self.txt_msg_update(str(e))
 
     def save(self):
         try:
@@ -587,6 +647,22 @@ class MainWindow:
             except Exception as e:
                 self.err_msg_update(format_exc())
 
-# if __name__ == '__main__':
-#     freeze_support()
-#     main()
+# class PopUpWindow(object):
+#     def __init__(self, master):
+#         self.master = master
+#         self.top = Toplevel(master)
+#
+#     def popup(self, text):
+#         self.lb = Label(self.top, text=text)
+#         self.lb.pack()
+#         self.b = Button(self.top, text="확인", command=self.clean_up)
+#         self.b.pack()
+#
+#     def clean_up(self):
+#         self.top.destroy()
+
+if __name__ == "__main__":
+    # Windows에서 Multiprocessing 사용하려면 다음 코드 꼭 입력!!
+    # 이전에 다른 코드 있으면 안 됨
+    freeze_support()
+    main()
