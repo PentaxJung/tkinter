@@ -16,74 +16,81 @@ class FileSystem(Frame):
         self.master = master
         self.idx = 0
         self.cur_selection = None
+        self.file_list()
+        self.file_data()
+        
+    # ----------------------------- Definite Frame Wrapper -----------------------------
+    # ----------------------------- Definite wrapper1 -----------------------------
+    def file_list(self):
+        self.wrapper1 = tk.Frame(self.master , name='file system wrapper1')
+        self.wrapper1.grid(row=0, padx=20, pady=10, sticky='we')
 
-        # ----------------------------- Definite Frame Wrapper -----------------------------
-        # ----------------------------- Definite wrapper1 -----------------------------
-        def file_list(self):
-            self.wrapper1 = tk.Frame(self.master , name='file system wrapper1')
-            self.wrapper1.grid(row=0, padx=20, pady=10, sticky='we')
+        # ----------------------------- Definite Scrollbar -----------------------------
+        scrollbar_trv = tk.Scrollbar(self.wrapper1)
+        scrollbar_trv.grid(row=1, column=1, padx=(0, 20), pady=10, sticky='ns')
 
-            # ----------------------------- Definite Scrollbar -----------------------------
-            scrollbar_trv = tk.Scrollbar(self.wrapper1)
-            scrollbar_trv.grid(row=1, column=1, padx=(0, 20), pady=10, sticky='ns')
+        # ----------------------------- Definite Treeview -----------------------------
+        self.trv = Treeview(self.wrapper1, columns=(1, 2, 3), show='tree headings', height=20,
+                            yscrollcommand=scrollbar_trv.set)
+        self.trv.grid(row=1, column=0, padx=(20, 0), pady=10, sticky='we')
 
-            # ----------------------------- Definite Treeview -----------------------------
-            self.trv = Treeview(self.wrapper1, columns=(1, 2, 3), show='tree headings', height=20,
-                                yscrollcommand=scrollbar_trv.set)
-            self.trv.grid(row=1, column=0, padx=(20, 0), pady=10, sticky='we')
+        # Scrollbar 바인딩
+        scrollbar_trv['command'] = self.trv.yview
 
-            # Scrollbar 바인딩
-            scrollbar_trv['command'] = self.trv.yview
+        # Column 설정
+        self.trv.column('#0', anchor='w', width=150)
+        self.trv.column(1, anchor='w', width=350)
+        self.trv.column(2, anchor='e', width=100)
+        self.trv.column(3, anchor='e', width=150)
 
-            # Column 설정
-            self.trv.column('#0', anchor='w', width=150)
-            self.trv.column(1, anchor='w', width=350)
-            self.trv.column(2, anchor='e', width=100)
-            self.trv.column(3, anchor='e', width=150)
+        # 각 Column 이름 설정
+        self.trv.heading('#0', text='File name', anchor='w')
+        self.trv.heading(1, text='Directory', anchor='w')
+        self.trv.heading(2, text='File type', anchor='e')
+        self.trv.heading(3, text='Size', anchor='e')
 
-            # 각 Column 이름 설정
-            self.trv.heading('#0', text='File name', anchor='w')
-            self.trv.heading(1, text='Directory', anchor='w')
-            self.trv.heading(2, text='File type', anchor='e')
-            self.trv.heading(3, text='Size', anchor='e')
+        # 이벤트 바인딩
+        self.trv.bind('<ButtonRelease-1>', self.mouse_click)
+        self.trv.bind('<Double-Button-1>', self.double_click)
+        self.trv.bind('<Control-a>', self.select_all)
 
-            # 이벤트 바인딩
-            self.trv.bind('<ButtonRelease-1>', self.mouse_click)
-            self.trv.bind('<Double-Button-1>', self.double_click)
-            self.trv.bind('<Control-a>', self.select_all)
+        # ----------------------------- Definite interaction wrapper -----------------------------
+        wrapper1_interaction_frame = Frame(self.wrapper1)
+        wrapper1_interaction_frame.grid(row=0, padx=20, pady=(10, 0), sticky='w')
 
-            # ----------------------------- Definite interaction wrapper -----------------------------
-            wrapper1_interaction_frame = Frame(self.wrapper1)
-            wrapper1_interaction_frame.grid(row=0, padx=20, pady=(10, 0), sticky='w')
+        # ----------------------------- Definite Button -------------------------------------
+        # file browse 버튼 설정
+        browse_infile_button = tk.Button(wrapper1_interaction_frame, text=" + ", command=self.browse_button_in, width=2)
+        browse_infile_button.grid(row=0, column=0)
 
-            # ----------------------------- Definite Button -------------------------------------
-            # file browse 버튼 설정
-            browse_infile_button = tk.Button(wrapper1_interaction_frame, text=" + ", command=self.browse_button_in, width=2)
-            browse_infile_button.grid(row=0, column=0)
+        # delete 버튼 설정
+        delete_infile_button = tk.Button(wrapper1_interaction_frame, text=" - ", command=self.delete_button_in, width=2)
+        delete_infile_button.grid(row=0, column=1)
 
-            # delete 버튼 설정
-            delete_infile_button = tk.Button(wrapper1_interaction_frame, text=" - ", command=self.delete_button_in, width=2)
-            delete_infile_button.grid(row=0, column=1)
+        zone_seg_button = tk.Button(wrapper1_interaction_frame, text=" RUN ",
+                                    command=lambda: self.call_popup(self), width=3)
+        zone_seg_button.grid(row=0, column=5)
 
-            zone_seg_button = tk.Button(wrapper1_interaction_frame, text=" RUN ",
-                                        command=lambda: self.call_popup(self), width=3)
-            zone_seg_button.grid(row=0, column=5)
+        # ----------------------------- Definite Label -------------------------------------
+        self.file_num_label = tk.Label(wrapper1_interaction_frame, text='')
+        self.file_num_label.grid(row=0, column=3, padx=(10, 0))
 
-            # ----------------------------- Definite Label -------------------------------------
-            self.file_num_label = tk.Label(wrapper1_interaction_frame, text='')
-            self.file_num_label.grid(row=0, column=3, padx=(10, 0))
-
-            self.file_sel_label = tk.Label(wrapper1_interaction_frame, text='')
-            self.file_sel_label.grid(row=0, column=4, padx=(10, 0))
-
-            # ----------------------------------------------------------------------------
-        def file_data(self):
-            # ----------------------------- Definite wrapper2 -----------------------------
-            self.wrapper2 = tk.Frame(self.master, name='file system wrapper2')
-
-            # ----------------------------- Definite scrolled text -----------------------------
-            self.text_data = scrolledtext.ScrolledText(self.wrapper2, height=20, width=85, name='hi')
-            self.text_data.grid(padx=20, pady=10)
+        self.file_sel_label = tk.Label(wrapper1_interaction_frame, text='')
+        self.file_sel_label.grid(row=0, column=4, padx=(10, 0))
+        
+        return self.wrapper1
+    
+        # ----------------------------------------------------------------------------
+    def file_data(self):
+        # ----------------------------- Definite wrapper2 -----------------------------
+        self.wrapper2 = tk.Frame(self.master, name='file system wrapper2')
+        self.wrapper2.grid(row=1, padx=20, pady=10, sticky='we')
+        
+        # ----------------------------- Definite scrolled text -----------------------------
+        self.text_data = scrolledtext.ScrolledText(self.wrapper2, height=20, width=85, name='hi')
+        self.text_data.grid(padx=20, pady=10)
+        
+        return self.wrapper2
 
     def call_popup(self, master):
         self.master.update()

@@ -65,9 +65,12 @@ class MainApplication(tk.Frame):
 
         # ----------------------------- Definite wrapper1 -----------------------------
         # 만약 파일 시스템만 불러오고 싶으면,
-        # fs_list = file_system.FileSystem(wrapper1).wrapper1
-        fs_list = file_system.FileSystem(wrapper1).wrapper2()
+        fs_wrapper1 = file_system.FileSystem(wrapper1)
+        fs_list = fs_wrapper1.file_list()
         fs_list.grid()
+        
+        # fs_data = file_system.FileSystem(wrapper2).file_data()
+        # fs_data.grid()
 
     def do_nothing(self):
         print("a")
