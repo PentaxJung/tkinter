@@ -1,8 +1,10 @@
 import tkinter as tk
-from tkinter.ttk import Frame, Notebook, Style, Treeview
+from tkinter.ttk import Frame, Notebook, Style
 
 from multiprocessing import freeze_support
+
 import file_system
+import zone_segmentation
 
 def main():
     root = tk.Tk()
@@ -59,21 +61,36 @@ class MainApplication(tk.Frame):
         wrapper2 = tk.LabelFrame(tab1, text=" File Data ", name="main application wrapper2")
         wrapper3 = tk.LabelFrame(tab1, text=" Search ")
 
-        wrapper1.grid(row=0, padx=20, pady=10, sticky='we')
-        wrapper2.grid(row=1, padx=20, pady=10, sticky='we')
-        wrapper3.grid(row=2, padx=20, pady=10, sticky='we')
+        wrapper1.grid(row=0, padx=20, pady=10)
+        wrapper2.grid(row=1, padx=20, pady=10)
+        wrapper3.grid(row=2, padx=20, pady=10)
+
+        # ----------------------------- Definite wrapper2 -----------------------------
+        # ----------------------------- Definite ScrolledText -----------------------------
+        fs_data = tk.scrolledtext.ScrolledText(wrapper2, height=20, width=85)
+        fs_data.grid(padx=20, pady=20)
 
         # ----------------------------- Definite wrapper1 -----------------------------
-        # 만약 파일 시스템만 불러오고 싶으면,
-        fs_wrapper1 = file_system.FileSystem(wrapper1)
+        # ----------------------------- Definite file list -----------------------------
+        # 미리 만들어 둔 fs_data(type: ScrolledText)를 FileSystem 객체에 연결
+        fs_wrapper1 = file_system.FileSystem(wrapper1, fs_data)
+
+        # 연결된 객체에서 file list 생성
         fs_list = fs_wrapper1.file_list()
         fs_list.grid()
-        
-        # fs_data = file_system.FileSystem(wrapper2).file_data()
-        # fs_data.grid()
+
+        # ----------------------------- Definite zone_seg button -----------------------------
+        zone_seg_button = tk.Button(fs_wrapper1.wrapper1_interaction_frame, text=" RUN ",
+                                    command=lambda: self.call_popup(self, 'zone_segmentation'), width=3)
+        zone_seg_button.grid(row=0, column=5)
 
     def do_nothing(self):
         print("a")
+
+    def call_popup(self, master, func):
+        self.master.update()
+        if func == 'zone_segmentation':
+            popup = zone_segmentation.main(self.master)
 
 if __name__ == "__main__":
     freeze_support()
